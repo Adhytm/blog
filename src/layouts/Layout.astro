@@ -1,0 +1,95 @@
+---
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/globals.css";
+import { Nav } from "../components/nav";
+import { SITE_NAME, SITE_URL } from "../lib/site";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonical?: string;
+}
+
+const {
+  title,
+  description = "折腾部署、写小工具、到处挖井",
+  ogImage = "/og.png",
+  canonical = Astro.url.pathname,
+} = Astro.props;
+
+const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+const currentPath = Astro.url.pathname;
+const currentYear = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="zh-CN" class="h-full antialiased">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="alternate" type="application/atom+xml" title={SITE_NAME} href="/feed.xml" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={new URL(canonical, SITE_URL).href} />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL(ogImage, SITE_URL).href} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, SITE_URL).href} />
+
+    <!-- 首屏防闪烁内联脚本 -->
+    <script is:inline>
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        } else if (t === "light") {
+          document.documentElement.classList.add("light");
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="min-h-full flex flex-col bg-background text-foreground font-sans">
+    <header class="sticky top-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-lg">
+      <Nav client:load currentPath={currentPath} />
+    </header>
+
+    <main class="flex-1 animate-page-enter">
+      <slot />
+    </main>
+
+    <footer class="border-t border-border/30">
+      <div class="mx-auto max-w-2xl px-6 py-12">
+        <div class="flex flex-col gap-6 sm:flex-row sm:items-baseline sm:justify-between">
+          <div>
+            <p class="text-sm font-medium">
+              <span class="font-mono text-accent">{"//"}</span> Adhytm
+            </p>
+            <p class="mt-1 text-xs text-muted">
+              折腾部署、写小工具、到处挖井
+            </p>
+          </div>
+          <nav class="flex gap-5 text-xs text-muted">
+            <a href="/blog" class="transition-colors hover:text-foreground">文章</a>
+            <a href="/projects" class="transition-colors hover:text-foreground">项目</a>
+            <a href="https://github.com/Adhytm" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-foreground">GitHub</a>
+          </nav>
+        </div>
+        <p class="mt-8 text-[11px] text-muted">
+          © {currentYear} · 用 Astro + React 搭建，部署在 Cloudflare Pages
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

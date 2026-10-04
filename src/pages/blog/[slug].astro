@@ -1,0 +1,196 @@
+---
+import { getCollection, render } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import { Tag } from "../../components/tag";
+import { Toc } from "../../components/toc";
+import { ReadingProgress } from "../../components/reading-progress";
+import { formatDate } from "../../lib/types";
+import { SITE_NAME, SITE_URL } from "../../lib/site";
+import { Callout } from "../../components/mdx/callout";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts", ({ data }) => !data.draft);
+  const sorted = [...posts].sort(
+    (a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
+  );
+
+  return sorted.map((post, index) => {
+    const prev = index < sorted.length - 1 ? sorted[index + 1] : null;
+    const next = index > 0 ? sorted[index - 1] : null;
+    return {
+      params: { slug: post.id },
+      props: { post, prev, next },
+    };
+  });
+}
+
+const { post, prev, next } = Astro.props;
+const { Content, headings } = await render(post);
+
+function calcReadingTime(text: string): string {
+  const chars = text.replace(/```[\s\S]*?```/g, "").replace(/\s/g, "").length;
+  const minutes = Math.max(1, Math.ceil(chars / 400));
+  return `${minutes} 分钟`;
+}
+
+const readingTime = calcReadingTime(post.body || "");
+
+const toc = headings
+  .filter((h) => h.depth === 2 || h.depth === 3)
+  .map((h) => ({
+    id: h.slug,
+    text: h.text,
+    level: h.depth as 2 | 3,
+  }));
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.date,
+  author: { "@type": "Person", name: SITE_NAME },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": `${SITE_URL}/blog/${encodeURIComponent(post.id)}`,
+  },
+};
+---
+
+<Layout
+  title={post.data.title}
+  description={post.data.description}
+  canonical={`/blog/${encodeURIComponent(post.id)}`}
+>
+  <article class="mx-auto max-w-2xl px-6 pt-20 pb-24 sm:pt-28">
+    <ReadingProgress client:load />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <!-- 文章头部 -->
+    <header class="relative mb-14">
+      <div class="pointer-events-none absolute -top-8 -left-8 h-32 w-48 rounded-full bg-accent/[0.05] blur-2xl"></div>
+      <div class="relative">
+        <div class="mb-5 h-px w-14 bg-accent/40"></div>
+        <div class="flex items-center gap-2 font-mono text-xs text-muted">
+          <span class="text-accent">{"//"}</span>
+          <time datetime={post.data.date}>{formatDate(post.data.date)}</time>
+          <span class="text-accent/50">·</span>
+          <span>{readingTime}</span>
+        </div>
+        <h1 class="mt-4 text-2xl font-bold tracking-tight leading-snug sm:text-3xl">
+          {post.data.title}
+        </h1>
+        {post.data.tags.length > 0 && (
+          <div class="mt-4 flex gap-2">
+            {post.data.tags.map((tag) => (
+              <Tag href={`/tags/${encodeURIComponent(tag)}`}>
+                {tag}
+              </Tag>
+            ))}
+          </div>
+        )}
+      </div>
+    </header>
+
+    <!-- 目录：宽屏固定在正文右侧留白处 -->
+    <Toc client:load entries={toc} />
+
+    <!-- 文章正文 -->
+    <div class="prose">
+      <Content components={{ Callout }} />
+    </div>
+
+    <!-- 上下篇导航 -->
+    <nav class="mt-16 border-t border-border pt-8">
+      <div class="flex gap-6">
+        <div class="flex-1">
+          {prev ? (
+            <a
+              href={`/blog/${encodeURIComponent(prev.id)}`}
+              class="group block"
+            >
+              <span class="font-mono text-xs text-muted">
+                ← 上一篇
+              </span>
+              <p class="mt-1 text-sm text-foreground transition-colors group-hover:text-accent">
+                {prev.data.title}
+              </p>
+            </a>
+          ) : null}
+        </div>
+        <div class="flex-1 text-right">
+          {next ? (
+            <a
+              href={`/blog/${encodeURIComponent(next.id)}`}
+              class="group block"
+            >
+              <span class="font-mono text-xs text-muted">
+                下一篇 →
+              </span>
+              <p class="mt-1 text-sm text-foreground transition-colors group-hover:text-accent">
+                {next.data.title}
+              </p>
+            </a>
+          ) : null}
+        </div>
+      </div>
+
+      <!-- 返回文章列表 -->
+      <div class="mt-6 text-center">
+        <a
+          href="/blog"
+          class="font-mono text-xs text-muted transition-colors hover:text-accent"
+        >
+          ← 返回文章列表
+        </a>
+      </div>
+    </nav>
+  </article>
+
+  <!-- 代码块一键复制与语言角标增强脚本 -->
+  <script is:inline>
+    document.querySelectorAll(".prose pre").forEach((pre) => {
+      if (pre.dataset.enhanced) return;
+      pre.dataset.enhanced = "true";
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "group/code my-8 overflow-hidden rounded-xl border border-border bg-code-bg backdrop-blur-md";
+
+      const header = document.createElement("div");
+      header.className = "flex items-center justify-between border-b border-border bg-code-header px-4 py-2";
+
+      // 提取代码语言
+      const code = pre.querySelector("code");
+      const langClass = Array.from(code?.classList || []).find((c) => c.startsWith("language-"));
+      const lang = langClass ? langClass.replace("language-", "") : (code?.getAttribute("data-language") || "text");
+
+      header.innerHTML = `
+        <span class="flex items-center gap-2 select-none font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+          <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-accent/70"></span>
+          ${lang}
+        </span>
+        <button
+          type="button"
+          class="copy-btn rounded-md border border-border/50 bg-background/60 px-2.5 py-1 text-xs text-muted backdrop-blur-sm transition-all hover:text-foreground cursor-pointer"
+        >复制</button>
+      `;
+
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(header);
+      wrapper.appendChild(pre);
+
+      const copyBtn = header.querySelector(".copy-btn");
+      copyBtn?.addEventListener("click", async () => {
+        const text = code?.textContent || pre.textContent || "";
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn.textContent = "已复制 ✓";
+          setTimeout(() => {
+            copyBtn.textContent = "复制";
+          }, 2000);
+        } catch (e) {}
+      });
+    });
+  </script>
+</Layout>

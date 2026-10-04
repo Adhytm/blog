@@ -1,0 +1,53 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getAllTags, getPostsByTag } from "../../lib/posts";
+import { PostItem } from "../../components/post-item";
+
+export async function getStaticPaths() {
+  const tags = getAllTags();
+  return tags.map((tag) => ({
+    params: { tag },
+    props: { tag },
+  }));
+}
+
+const { tag } = Astro.props;
+const posts = getPostsByTag(tag);
+---
+
+<Layout
+  title={`标签：${tag}`}
+  description={`所有关于「${tag}」的文章`}
+  canonical={`/tags/${encodeURIComponent(tag)}`}
+>
+  <div class="mx-auto max-w-2xl px-6 pt-20 pb-24 sm:pt-28">
+    <div class="mb-10">
+      <div class="font-mono text-xs text-muted">
+        <a href="/tags" class="transition-colors hover:text-accent">
+          标签
+        </a>
+        <span class="mx-1 text-accent/50">/</span>
+      </div>
+      <h1 class="mt-2 flex items-baseline gap-1.5 text-2xl font-semibold tracking-tight sm:text-3xl">
+        <span class="text-accent">#</span>
+        {tag}
+      </h1>
+      <p class="mt-2 section-label">{posts.length} posts</p>
+    </div>
+
+    <div class="space-y-1">
+      {posts.map((post) => (
+        <PostItem client:visible post={post} />
+      ))}
+    </div>
+
+    <div class="mt-12">
+      <a
+        href="/tags"
+        class="font-mono text-xs text-muted transition-colors hover:text-accent"
+      >
+        ← 所有标签
+      </a>
+    </div>
+  </div>
+</Layout>

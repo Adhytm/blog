@@ -1,0 +1,92 @@
+---
+title: "异构多卡环境的 GPU 隔离：一份踩坑速查笔记"
+date: "2026-07-25"
+description: "GTX 1660S + RTX 5060 Ti 混合部署 vLLM 与 TEI 时遇到的 CUDA 上下文抢占问题，以及从崩溃到跑通的完整解法和代码。"
+tags: ["CUDA", "Docker", "GPU", "踩坑", "部署"]
+draft: false
+---
+
+## 一句话说清楚问题
+
+你在同一台机器上插了两张不同架构的 NVIDIA 显卡——比如一张 Turing（GTX 1660S，SM75）当亮机卡，一张 Blackwell（RTX 5060 Ti，SM120）跑推理。然后你发现：不管你用 `--gpus` 还是 `CUDA_VISIBLE_DEVICES` 怎么指定，TEI / Infinity Emb 这类服务就是不肯老老实实绑到你想让它跑的那张卡上。
+
+报错长这样：
+
+```
+Could not start backend: Runtime compute cap 120 is not compatible with compile time compute cap 75
+```
+
+架构不匹配，加载了错的 kernel，直接崩。
+
+## 根因：抢椅子效应
+
+CUDA 在异构多卡环境下初始化时，**逻辑设备 ID 不等于物理 GPU 序号**。高性能卡（5060 Ti）初始化和上下文分配都比低端卡快，所以它总是抢先占住逻辑 device 0——哪怕你以为 `--gpus "device=0"` 指的是 1660S。
+
+你指定的椅子编号，跟最后坐下的人，不是同一个。
+
+## 解法：双层隔离
+
+一层不够，得两层。Docker 层做物理隔离，环境变量层做逻辑隔离，缺一不可。
+
+```bash
+docker run -d \
+  --name tei-reranker-1660s \
+  --gpus "device=1" \
+  -e CUDA_VISIBLE_DEVICES=0 \
+  -e FLASH_ATTENTION_DISABLE=1 \
+  swr.cn-north-4.myhuaweicloud.com/ddn-k8s/ghcr.io/huggingface/text-embeddings-inference:turing-1.5 \
+  --model-id /data \
+  --port 80
+```
+
+三个关键点：
+
+- **`--gpus "device=1"`** 从 Docker 层只透传物理 GPU 1 进容器，其他卡容器压根看不到
+- **`-e CUDA_VISIBLE_DEVICES=0`** 容器内只剩一张卡，逻辑 ID 从 0 开始，杜绝意外初始化到别处
+- **`-e FLASH_ATTENTION_DISABLE=1`** 禁用 FlashAttention，这个算子是为 SM80+ 编译的，Turing（SM75）跑不了；不禁的话绑对了卡也会崩在 kernel 加载阶段
+
+镜像用 `turing-1.5` 而不是 `latest`，TEI 官方按架构分了镜像，turing 版本的 kernel 就是为 SM75 编译的。
+
+## 不想用 Docker 的话
+
+纯 Python 部署也可以，核心规则一样——在脚本最顶行、任何 import 之前设环境变量：
+
+```python
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # 必须第一行，import torch 之前
+
+import torch
+from sentence_transformers import CrossEncoder
+
+model = CrossEncoder(
+    "/data/bge-reranker-v2-m3",
+    device="cuda:0",
+    automodel_args={"torch_dtype": torch.float16}
+)
+```
+
+FP16 把显存压到 2GB 左右，1660S 的 6GB 充足。
+
+## 对 GPU 资源的效果
+
+跑起来之后，1660S 显存占用上涨，5060 Ti 纹丝不动——**0% 显存，0% 利用率**。隔离成功。
+
+## 调试中的一点体会
+
+当时卡这个问题的时候去问 GPT-5.3，给的全是"检查驱动版本""确认 CUDA toolkit 兼容性"这种正确但完全没用的建议。文档翻了，Issue 搜了，没找到一模一样的案例。最后是反复对比 `nvidia-smi` 输出和容器内设备信息，自己一点点把逻辑 ID 和物理序号的对应关系捋清楚的。
+
+现在回头看，这问题本身不复杂，但涉及 Docker、CUDA、kernel 编译三个层面的交叉，任何一个环节理解偏差就会卡很久。
+
+## 完整代码与调试日志
+
+我把完整的调试日志、Docker 脚本、Python 代码都整理在 GitHub 上了：
+
+**[github.com/Adhytm/multi-gpu-debug-notes](https://github.com/Adhytm/multi-gpu-debug-notes)**
+
+仓库结构：
+
+- `docs/multi_gpu_docker_debug.md` — 根因分析、完整调试过程、截图与日志
+- `examples/docker_command.sh` — TEI 隔离部署脚本（含全部环境变量）
+- `examples/run_1660s.py` — Python 原生部署代码（Flask + sentence-transformers + FP16 优化）
+
+如果你也在异构多卡环境遇到了类似问题，欢迎直接翻文档或者提 Issue。

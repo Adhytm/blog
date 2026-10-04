@@ -1,0 +1,132 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getAllPosts, getAllTags, getLatestPosts, getTopPosts, formatDate } from "../lib/posts";
+import { PostItem } from "../components/post-item";
+import { Tag } from "../components/tag";
+
+const topPosts = getTopPosts(1);
+const latestPosts = getLatestPosts(5);
+const featured = topPosts[0];
+const postCount = getAllPosts().length;
+const tagCount = getAllTags().length;
+
+// 首页列表中排除已置顶的文章
+const restPosts = featured
+  ? latestPosts.filter((p) => p.slug !== featured.slug)
+  : latestPosts;
+---
+
+<Layout>
+  <div class="mx-auto max-w-2xl px-6">
+    <!-- Hero：左侧签名 + 右侧终端卡片 -->
+    <section class="relative pt-16 pb-14 sm:pt-24 sm:pb-16">
+      <div class="pointer-events-none absolute -top-10 -left-16 h-48 w-72 rounded-full bg-accent/[0.06] blur-3xl"></div>
+      <div class="relative flex flex-col gap-10 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 class="text-4xl font-bold tracking-tighter sm:text-5xl">
+            Adhytm
+          </h1>
+          <p class="mt-4 max-w-md text-base leading-relaxed text-muted sm:text-lg">
+            折腾部署、写小工具、到处挖井。
+          </p>
+          <p class="mt-5 flex items-center gap-4 font-mono text-xs text-muted">
+            <span>{postCount} 篇文章</span>
+            <span class="h-3 w-px bg-border"></span>
+            <span>{tagCount} 个标签</span>
+          </p>
+        </div>
+
+        <!-- 终端卡片 -->
+        <div
+          aria-label="当前状态"
+          class="w-full shrink-0 overflow-hidden rounded-xl border border-border/70 bg-surface/60 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.3)] backdrop-blur-sm sm:w-64"
+        >
+          <div class="flex items-center gap-1.5 border-b border-border/60 bg-code-header px-3.5 py-2.5">
+            <span class="h-2 w-2 rounded-full bg-border"></span>
+            <span class="h-2 w-2 rounded-full bg-border"></span>
+            <span class="h-2 w-2 rounded-full bg-accent/60"></span>
+            <span class="ml-2 font-mono text-[10px] text-muted/70">adhytm@blog:~</span>
+          </div>
+          <div class="space-y-1.5 px-4 py-3.5 font-mono text-xs leading-relaxed">
+            <p class="text-muted">
+              <span class="text-accent">$</span> cat now.txt
+            </p>
+            <p class="text-foreground">
+              正在写：网络监测 TUI
+            </p>
+            <p class="text-muted">
+              <span class="text-accent">$</span> cat next.txt
+            </p>
+            <p class="text-foreground">
+              学 RAG 的 chunk 切分
+            </p>
+            <p class="text-muted">
+              <span class="text-accent">$</span>{" "}
+              <span class="animate-cursor-blink inline-block h-3.5 w-[7px] translate-y-0.5 bg-accent/80"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 置顶文章 -->
+    {featured && (
+      <section class="pb-16">
+        <a
+          href={`/blog/${encodeURIComponent(featured.slug)}`}
+          class="group relative block overflow-hidden rounded-xl border border-accent/20 bg-accent/[0.03] p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent/[0.06] hover:shadow-[0_10px_36px_-14px_rgba(180,83,9,0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-8"
+        >
+          <span
+            aria-hidden="true"
+            class="absolute right-6 top-6 font-mono text-sm text-accent/0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-accent/70 sm:right-8 sm:top-8"
+          >
+            →
+          </span>
+          <div class="flex items-center gap-2 font-mono text-xs">
+            <span class="text-accent">{"//"} featured</span>
+            <span class="text-muted/50">·</span>
+            <time class="text-muted">{formatDate(featured.date)}</time>
+          </div>
+          <h2 class="mt-3 text-xl font-semibold leading-tight tracking-tight transition-colors group-hover:text-accent sm:text-2xl">
+            {featured.title}
+          </h2>
+          {featured.description && (
+            <p class="mt-3 text-sm leading-relaxed text-muted sm:text-base">
+              {featured.description}
+            </p>
+          )}
+          {featured.tags.length > 0 && (
+            <div class="mt-4 flex flex-wrap gap-1.5">
+              {featured.tags.map((tag) => (
+                <Tag key={tag}>{tag}</Tag>
+              ))}
+            </div>
+          )}
+        </a>
+      </section>
+    )}
+
+    <!-- 最新文章 -->
+    <section class="pb-24">
+      <div class="mb-8 flex items-baseline justify-between">
+        <h2 class="section-label">Latest</h2>
+        <a
+          href="/blog"
+          class="text-sm text-accent transition-colors hover:opacity-70"
+        >
+          全部 →
+        </a>
+      </div>
+      <div class="space-y-1">
+        {restPosts.map((post, i) => (
+          <div
+            class="animate-fade-up"
+            style={`animation-delay: ${i * 60}ms`}
+          >
+            <PostItem client:visible post={post} />
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+</Layout>

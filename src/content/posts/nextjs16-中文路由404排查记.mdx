@@ -1,0 +1,92 @@
+---
+title: "Next.js 16 把我的中文路由搞 404 了"
+date: "2026-07-28"
+description: "所有文章页 404，HTTP 状态码却是 200，硬刷新、重启都无效。根因是 Next.js 16 不再自动解码动态路由参数，中文 slug 匹配永远失败。一行 decodeURIComponent 即可修复。"
+tags: ["Next.js", "踩坑", "调试"]
+draft: false
+---
+
+我的博客用中文文件名做文章 slug：`content/posts/api还是自建-成本账.mdx` 对应路由 `/blog/api还是自建-成本账`。升级到 Next.js 16 之后，所有文章页都打不开了，点进去全是 404。
+
+## 现象
+
+问题有几个反直觉的特征：
+
+- 文章列表页完全正常，数据、链接都在
+- 点进任何一篇文章，渲染出来的都是 404 页面
+- 用 curl 请求文章 URL，HTTP 状态码返回 **200**
+- Ctrl+Shift+R 硬刷新、重启电脑、重启 dev server，全都无效
+
+状态码 200 是最大的干扰项。它让"服务器出了问题"这个假设站不住脚——服务器明明"正常响应"了。
+
+## 排查：状态码骗了所有人
+
+我把问题丢给 AI。它用 curl 测了一遍，看到 200，结论是："服务器返回正常，应该是浏览器缓存，清缓存即可。"
+
+这个结论解释不了一件事：为什么重启电脑后问题依旧？缓存清了个遍，404 还在。
+
+转机出现在不再相信状态码之后。我打印了响应体（response body），发现 200 的 body 里渲染的根本不是文章内容，而是 404 页面——HTML 里带着 `NEXT_HTTP_ERROR_FALLBACK;404` 的标记。
+
+也就是说，服务器确实在返回 404，只是 dev 模式下把这个结果包在了 200 状态码里。**状态码和实际内容是脱节的。** 所有基于状态码的检查——curl、监控、AI 的自动排查——在这一刻全部失效。
+
+## 根因：params 没有解码
+
+确认是"服务端主动渲染 404"之后，范围缩小到页面组件里的 `notFound()` 调用。我在组件里加了一行日志，打印实际拿到的 `params.slug`：
+
+```ts
+console.log(JSON.stringify({ slug, length: slug.length }));
+// 输出：
+// {"slug":"api%E8%BF%98%E6%98%AF%E8%87%AA%E5%BB%BA-%E6%88%90%E6%9C%AC%E8%B4%A6","length":67}
+```
+
+问题一目了然。`params.slug` 拿到的是 URL 的原始形态——percent-encoded 字符串，67 个字符；而用来匹配的文件系统 slug 是解码后的中文，10 个字符：
+
+```ts
+// content/posts/api还是自建-成本账.mdx → slug: "api还是自建-成本账"
+```
+
+`"api%E8%BF%98…" === "api还是自建-成本账"` 永远为 `false`。匹配失败，`getPostBySlug` 返回 `undefined`，`notFound()` 触发。
+
+在 Next.js 16（实测 16.2.9）中，动态路由的 `params` 不再自动做 URL 解码，传给页面组件的就是 URL 里的原始编码值。英文 slug 不受影响——`hello-world` 编码前后一个样；中文 slug 编码前后是两副面孔，所以只有中文路由中招。
+
+> 我尚未确认这是官方文档明确记录的行为变更，还是特定版本的实现细节。但无论哪种，手动解码都是稳妥的修法。
+
+## 修复
+
+在使用 `params.slug` 之前手动解码：
+
+```ts
+function decodeSlug(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw; // 解码失败时原样返回，避免抛异常
+  }
+}
+
+export default async function PostPage({ params }: Props) {
+  const { slug: rawSlug } = await params;
+  const slug = decodeSlug(rawSlug);
+  const post = getPostBySlug(slug);
+  if (!post) notFound();
+  // …
+}
+```
+
+两个细节：
+
+- `generateMetadata` 里如果也用到 slug，同样要解码，否则元数据查找也会失败。
+- `decodeURIComponent` 对未编码的字符串是幂等的——英文 slug 原样进出，所以这个修复对中英文 slug 都安全。
+
+## 复盘
+
+这个 bug 的隐蔽性在于两层伪装：
+
+1. **状态码 200。** dev 模式下 404 内容包在 200 里返回，任何只看状态码的排查手段都会误判为"正常"。
+2. **英文 slug 完全正常。** 只有非 ASCII slug 触发，问题看起来像"个别文章坏了"，而不是系统性故障。
+
+几条可以直接带走的经验：
+
+- 排查 404 时，**先看响应 body，再看状态码**。Next.js dev 模式下两者可能不一致。
+- 用非 ASCII 字符做动态路由参数时，默认它可能是编码过的，取值前先解码。
+- 自动化排查工具看到"200"就会收手。人要比工具多问一步：200 的 body 里，装的到底是什么？
