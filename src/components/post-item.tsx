@@ -1,5 +1,6 @@
 import { formatDate, relativeTime, type Post } from "@/lib/types";
 import { Tag } from "./tag";
+import { url } from "@/lib/url";
 
 export function PostItem({
   post,
@@ -16,7 +17,7 @@ export function PostItem({
   return (
     <article className="group">
       <div className="relative -mx-4 rounded-lg border border-transparent px-4 py-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-border/60 hover:bg-surface/70 hover:shadow-[0_6px_24px_-12px_rgba(0,0,0,0.18)] motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-        <a href={`/blog/${encodeURIComponent(post.slug)}`} className="absolute inset-0 z-0" aria-label={post.title} />
+        <a href={url(`/blog/${encodeURIComponent(post.slug)}`)} className="absolute inset-0 z-0" aria-label={post.title} />
 
         {/* hover 时右上角浮现箭头：和置顶卡片同一套可点击暗示 */}
         <span

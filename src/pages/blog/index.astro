@@ -2,6 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import { getAllPosts } from "../../lib/posts";
 import { PostList } from "../../components/post-list";
+import { url } from "../../lib/url";
 
 const posts = getAllPosts();
 ---
@@ -16,7 +17,7 @@ const posts = getAllPosts();
         <p class="section-label">{posts.length} posts</p>
         <span class="h-3 w-px bg-border"></span>
         <a
-          href="/tags"
+          href={url("/tags")}
           class="font-mono text-xs text-muted transition-colors hover:text-accent"
         >
           按标签浏览 →

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { searchDocs, type SearchDoc, type SearchResult } from "@/lib/search";
+import { url } from "@/lib/url";
 
 /**
  * 命令面板式站内搜索。
@@ -52,7 +53,7 @@ export function SearchPalette() {
     if (!open) return;
     inputRef.current?.focus();
     if (docs === null) {
-      fetch("/search-index.json")
+      fetch(url("/search-index.json"))
         .then((r) => r.json())
         .then((data: SearchDoc[]) => setDocs(data))
         .catch(() => setDocs([]));
@@ -83,7 +84,7 @@ export function SearchPalette() {
 
   const go = (slug: string) => {
     setOpen(false);
-    window.location.href = `/blog/${encodeURIComponent(slug)}`;
+    window.location.href = url(`/blog/${encodeURIComponent(slug)}`);
   };
 
   const onInputKey = (e: React.KeyboardEvent) => {

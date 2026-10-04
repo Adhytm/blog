@@ -10,7 +10,7 @@ const [owner, repo] = githubRepo ? githubRepo.split("/") : [];
 const isUserSite = owner && repo && repo.toLowerCase() === `${owner.toLowerCase()}.github.io`;
 
 const site = githubRepo
-  ? `https://${owner}.github.io`
+  ? `https://${owner.toLowerCase()}.github.io`
   : (process.env.SITE_URL || "https://adhytm.github.io");
 
 // 如果是项目仓库（如 Adhytm/blog），base 自动设为 /blog；如果是主站仓库或自定义域名，base 为 /

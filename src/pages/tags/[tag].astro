@@ -2,6 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import { getAllTags, getPostsByTag } from "../../lib/posts";
 import { PostItem } from "../../components/post-item";
+import { url } from "../../lib/url";
 
 export async function getStaticPaths() {
   const tags = getAllTags();
@@ -18,12 +19,11 @@ const posts = getPostsByTag(tag);
 <Layout
   title={`标签：${tag}`}
   description={`所有关于「${tag}」的文章`}
-  canonical={`/tags/${encodeURIComponent(tag)}`}
 >
   <div class="mx-auto max-w-2xl px-6 pt-20 pb-24 sm:pt-28">
     <div class="mb-10">
       <div class="font-mono text-xs text-muted">
-        <a href="/tags" class="transition-colors hover:text-accent">
+        <a href={url("/tags")} class="transition-colors hover:text-accent">
           标签
         </a>
         <span class="mx-1 text-accent/50">/</span>
@@ -43,7 +43,7 @@ const posts = getPostsByTag(tag);
 
     <div class="mt-12">
       <a
-        href="/tags"
+        href={url("/tags")}
         class="font-mono text-xs text-muted transition-colors hover:text-accent"
       >
         ← 所有标签

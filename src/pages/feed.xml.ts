@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getAllPosts } from "../lib/posts";
 import { SITE_NAME, SITE_URL } from "../lib/site";
+import { url } from "../lib/url";
 
 function escapeXml(str: string) {
   if (!str) return "";
@@ -18,13 +19,17 @@ function toISO(dateStr: string) {
   return Number.isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString();
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async (context) => {
   const posts = getAllPosts();
   const latestDate = posts.length > 0 ? toISO(posts[0].date) : toISO(new Date().toISOString());
 
+  const origin = context.site ? context.site.origin : SITE_URL.replace(/\/$/, "");
+  const feedUrl = new URL(url("/feed.xml"), origin).href;
+  const homeUrl = new URL(url("/"), origin).href;
+
   const entries = posts
     .map((post) => {
-      const postUrl = `${SITE_URL}/blog/${encodeURIComponent(post.slug)}`;
+      const postUrl = new URL(url(`/blog/${encodeURIComponent(post.slug)}`), origin).href;
       return `  <entry>
     <title>${escapeXml(post.title)}</title>
     <link href="${escapeXml(postUrl)}" rel="alternate" type="text/html"/>
@@ -39,9 +44,9 @@ export const GET: APIRoute = async () => {
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(SITE_NAME)}</title>
   <subtitle>${escapeXml(SITE_NAME)} Blog</subtitle>
-  <link href="${SITE_URL}/feed.xml" rel="self" type="application/atom+xml"/>
-  <link href="${SITE_URL}" rel="alternate" type="text/html"/>
-  <id>${SITE_URL}/</id>
+  <link href="${feedUrl}" rel="self" type="application/atom+xml"/>
+  <link href="${homeUrl}" rel="alternate" type="text/html"/>
+  <id>${homeUrl}</id>
   <updated>${latestDate}</updated>
   <author>
     <name>${escapeXml(SITE_NAME)}</name>

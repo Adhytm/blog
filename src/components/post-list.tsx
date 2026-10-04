@@ -43,7 +43,8 @@ export function PostList({
     }
     const qs = params.toString();
     setState(parseState(qs));
-    window.history.pushState(null, "", `/blog${qs ? `?${qs}` : ""}`);
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "/blog";
+    window.history.pushState(null, "", `${currentPath}${qs ? `?${qs}` : ""}`);
   };
 
   const setSort = (mode: SortMode) => updateParams("sort", mode);

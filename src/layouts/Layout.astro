@@ -4,6 +4,7 @@ import "@fontsource-variable/jetbrains-mono";
 import "../styles/globals.css";
 import { Nav } from "../components/nav";
 import { SITE_NAME, SITE_URL } from "../lib/site";
+import { url } from "../lib/url";
 
 interface Props {
   title?: string;
@@ -15,13 +16,14 @@ interface Props {
 const {
   title,
   description = "折腾部署、写小工具、到处挖井",
-  ogImage = "/og.png",
-  canonical = Astro.url.pathname,
+  ogImage = url("/og.png"),
+  canonical,
 } = Astro.props;
 
 const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
 const currentPath = Astro.url.pathname;
 const currentYear = new Date().getFullYear();
+const canonicalUrl = canonical || Astro.url.href;
 ---
 
 <!doctype html>
@@ -29,24 +31,24 @@ const currentYear = new Date().getFullYear();
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="alternate" type="application/atom+xml" title={SITE_NAME} href="/feed.xml" />
+    <link rel="icon" type="image/x-icon" href={url("/favicon.ico")} />
+    <link rel="alternate" type="application/atom+xml" title={SITE_NAME} href={url("/feed.xml")} />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={new URL(canonical, SITE_URL).href} />
+    <link rel="canonical" href={canonicalUrl} />
 
     <!-- Open Graph / Twitter -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content={Astro.url.href} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={new URL(ogImage, SITE_URL).href} />
+    <meta property="og:image" content={new URL(ogImage, Astro.site || SITE_URL).href} />
     <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:locale" content="zh_CN" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={new URL(ogImage, SITE_URL).href} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.site || SITE_URL).href} />
 
     <!-- 首屏防闪烁内联脚本 -->
     <script is:inline>
@@ -81,13 +83,13 @@ const currentYear = new Date().getFullYear();
             </p>
           </div>
           <nav class="flex gap-5 text-xs text-muted">
-            <a href="/blog" class="transition-colors hover:text-foreground">文章</a>
-            <a href="/projects" class="transition-colors hover:text-foreground">项目</a>
+            <a href={url("/blog")} class="transition-colors hover:text-foreground">文章</a>
+            <a href={url("/projects")} class="transition-colors hover:text-foreground">项目</a>
             <a href="https://github.com/Adhytm" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-foreground">GitHub</a>
           </nav>
         </div>
         <p class="mt-8 text-[11px] text-muted">
-          © {currentYear} · 用 Astro + React 搭建，部署在 Cloudflare Pages
+          © {currentYear} · 用 Astro + React 搭建，部署在 GitHub Pages
         </p>
       </div>
     </footer>

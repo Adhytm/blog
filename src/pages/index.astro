@@ -3,6 +3,7 @@ import Layout from "../layouts/Layout.astro";
 import { getAllPosts, getAllTags, getLatestPosts, getTopPosts, formatDate } from "../lib/posts";
 import { PostItem } from "../components/post-item";
 import { Tag } from "../components/tag";
+import { url } from "../lib/url";
 
 const topPosts = getTopPosts(1);
 const latestPosts = getLatestPosts(5);
@@ -73,7 +74,7 @@ const restPosts = featured
     {featured && (
       <section class="pb-16">
         <a
-          href={`/blog/${encodeURIComponent(featured.slug)}`}
+          href={url(`/blog/${encodeURIComponent(featured.slug)}`)}
           class="group relative block overflow-hidden rounded-xl border border-accent/20 bg-accent/[0.03] p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent/[0.06] hover:shadow-[0_10px_36px_-14px_rgba(180,83,9,0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-8"
         >
           <span
@@ -111,7 +112,7 @@ const restPosts = featured
       <div class="mb-8 flex items-baseline justify-between">
         <h2 class="section-label">Latest</h2>
         <a
-          href="/blog"
+          href={url("/blog")}
           class="text-sm text-accent transition-colors hover:opacity-70"
         >
           全部 →
